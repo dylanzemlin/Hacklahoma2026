@@ -1,15 +1,19 @@
 #import whisper
+# fix alsalib errors?
+#import sounddevice
+
 import speech_recognition as sr
 import time
 
 def audio_callback(_, audio:sr.AudioData):
 	data = audio.get_raw_data()
+	print(data)
 
 def main():
 	recorder = sr.Recognizer()
 	recorder.energy_threshold = 3200 #TODO FIXME
 
-	source = sr.Microphone(sample_rate = 16000) #TODO FIXME
+	source = sr.Microphone(device_index=0, sample_rate = 16000) #TODO FIXME
 	with source:
 		recorder.adjust_for_ambient_noise(source, duration = 3)
 
