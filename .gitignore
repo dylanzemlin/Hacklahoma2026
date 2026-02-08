@@ -1,2 +1,4 @@
 # very large model files ignore, whisper downloads automatically anyways
 ./model/*
+./model
+./model/**
