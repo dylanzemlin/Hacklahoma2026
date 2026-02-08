@@ -10,8 +10,12 @@ from datetime import datetime, timedelta
 from queue import Queue
 from time import sleep
 
+import serial
 
 def main():
+    # open serial connection using standard baudrate (TODO: check with Micheal)
+    ser = serial.Serial('/dev/ttyUSB0', baudrate=115200)
+
     # The last time a recording was retrieved from the queue.
     phrase_time = None
     # Thread safe Queue for passing data from the threaded recording callback.
@@ -21,17 +25,16 @@ def main():
     # We use SpeechRecognizer to record our audio because it has a nice feature where it can detect when speech ends.
     recorder = sr.Recognizer()
     recorder.energy_threshold = 3200
+
     # Definitely do this, dynamic energy compensation lowers the energy threshold dramatically to a point where the SpeechRecognizer never stops recording.
     recorder.dynamic_energy_threshold = False
 
-    # Important for linux users.
-    # Prevents permanent application hang and crash by using the wrong Microphone
     source = sr.Microphone(device_index=0, sample_rate=16000)
 
     # Load / Download model
     audio_model = whisper.load_model("small.en", download_root="/mnt/pepper/Hacklahoma2026/model")
 
-    # FIXME
+    # FIXME tune these values if we have the time
     record_timeout = 2
     phrase_timeout = 3
 
@@ -51,13 +54,26 @@ def main():
 
     # Create a background thread that will pass us raw audio bytes.
     # We could do this manually but SpeechRecognizer provides a nice helper.
+
+    #FIXME this isn't what we're doing right? if we just do button?
     recorder.listen_in_background(source, record_callback, phrase_time_limit=record_timeout)
 
     # Cue the user that we're ready to go.
     print("Model loaded.\n")
 
+    # try to open serial connection to receive data
     while True:
         try:
+            ser.open()
+            break
+        except serial.SerialException as e:
+            print("failed to open serial port, retrying...")
+            time.sleep(1)
+
+    while True:
+        try:
+            mic_data = ser.read_until(b'ENDOFDATA')
+
             now = datetime.utcnow()
             # Pull raw recorded audio from the queue.
             if not data_queue.empty():
@@ -103,6 +119,7 @@ def main():
                 # Infinite loops are bad for processors, must sleep.
                 sleep(0.25)
         except KeyboardInterrupt:
+            ser.close() # remember to clean up after ourselves
             break
 
     print("\n\nTranscription:")
