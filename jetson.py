@@ -11,10 +11,20 @@ from queue import Queue
 from time import sleep
 
 import serial
+from openai import OpenAI
+
+#FIXME disable me if causes problems
+import pyttsx3
 
 def main():
     # open serial connection using standard baudrate (TODO: check with Micheal)
     ser = serial.Serial('/dev/ttyUSB0', baudrate=115200)
+
+    # should be fast, model will take the longest
+    engine = pyttsx3.init()
+
+    # chatGPT client
+    client = OpenAI()
 
     # The last time a recording was retrieved from the queue.
     phrase_time = None
@@ -101,20 +111,32 @@ def main():
                 # Read the transcription.
                 result = audio_model.transcribe(audio_np, fp16=False)
                 text = result['text'].strip()
+                print(text)
 
+                #FIXME do we still need to keep this? or do this?
                 # If we detected a pause between recordings, add a new item to our transcription.
                 # Otherwise edit the existing one.
-                if phrase_complete:
-                    transcription.append(text)
-                else:
-                    transcription[-1] = text
+                #if phrase_complete:
+                #    transcription.append(text)
+                #else:
+                #    transcription[-1] = text
+
+                # send request to ChatGPT (ideally this would be running locally, but the Orin Nano simply isn't powerful/big enough.
+                response = client.responses.create(
+                    model="gpt-5.2",
+                    instructions="You are Bing Bong from the videogame Peak, a helpful assistant that provides concise and informative to any questions that are asked. Please try to keep your responses fairly short, as response time will will matter to the individuals. So, in general, keep responses to at maximum two sentences.",
+                    input=text
+                )
+
+                #TODO: say request out loud (would prefer to send this back but speaker isn't working rn so we improvise
+                print(response.output_text)
 
                 # Clear the console to reprint the updated transcription.
-                os.system('cls' if os.name=='nt' else 'clear')
-                for line in transcription:
-                    print(line)
+                #os.system('cls' if os.name=='nt' else 'clear')
+                #for line in transcription:
+                #    print(line)
                 # Flush stdout.
-                print('', end='', flush=True)
+                #print('', end='', flush=True)
             else:
                 # Infinite loops are bad for processors, must sleep.
                 sleep(0.25)
